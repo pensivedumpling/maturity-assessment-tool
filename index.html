@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Freight Brokerage Digital Maturity Assessment</title>
+<link rel="icon" href="data:,">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #f4f6f9;
+    --card: #ffffff;
+    --ink: #1b2430;
+    --muted: #5d6b7c;
+    --line: #dde3ea;
+    --accent: #1f5f8b;
+    --accent-soft: #e8f1f8;
+    --warn: #b4442f;
+    --warn-soft: #fbeeea;
+    --good: #2f7d5b;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.5;
+    font-size: 16px;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px; }
+
+  /* Header */
+  header { background: var(--ink); color: #fff; padding: 36px 0 30px; }
+  header .eyebrow { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: #9fb6cc; margin: 0 0 6px; }
+  header h1 { margin: 0 0 10px; font-size: 28px; line-height: 1.2; }
+  header p { margin: 0; color: #c9d4df; max-width: 680px; }
+  .dim-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; padding: 0; list-style: none; }
+  .dim-chips li { font-size: 13px; padding: 4px 10px; border: 1px solid #3c4a5c; border-radius: 999px; color: #dfe7ef; }
+
+  /* Progress bar */
+  .progress {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(255,255,255,.96); border-bottom: 1px solid var(--line);
+    backdrop-filter: blur(4px);
+  }
+  .progress .wrap { display: flex; align-items: center; gap: 14px; padding-top: 10px; padding-bottom: 10px; }
+  .bar { flex: 1; height: 8px; background: var(--line); border-radius: 999px; overflow: hidden; }
+  .bar span { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+  .progress .count { font-size: 14px; color: var(--muted); white-space: nowrap; }
+
+  /* Dimension sections */
+  main { padding: 28px 0 40px; }
+  .dimension { margin-bottom: 34px; }
+  .dim-head { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 14px; }
+  .dim-num {
+    flex: 0 0 34px; height: 34px; border-radius: 50%;
+    background: var(--accent); color: #fff; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .dim-head h2 { margin: 2px 0 2px; font-size: 21px; }
+  .dim-head p { margin: 0; color: var(--muted); font-size: 15px; }
+
+  fieldset.q {
+    border: 1px solid var(--line); border-radius: var(--radius);
+    background: var(--card); padding: 18px 20px 14px; margin: 0 0 14px;
+  }
+  fieldset.q.missing { border-color: var(--warn); background: var(--warn-soft); }
+  fieldset.q legend { padding: 0; font-weight: 600; font-size: 16px; float: left; width: 100%; margin-bottom: 12px; }
+  fieldset.q legend .qn { color: var(--accent); margin-right: 6px; }
+  .opts { clear: both; display: grid; gap: 8px; }
+  .opt {
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px;
+    cursor: pointer; font-size: 15px; transition: background .12s, border-color .12s;
+  }
+  .opt:hover { background: #f8fafc; }
+  .opt input { margin-top: 4px; accent-color: var(--accent); flex: 0 0 auto; }
+  .opt:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+
+  /* Submit area */
+  .submit-box { text-align: center; padding: 10px 0 0; }
+  .btn {
+    font: inherit; font-weight: 600; border: 0; border-radius: 8px;
+    padding: 12px 26px; cursor: pointer; background: var(--accent); color: #fff;
+  }
+  .btn:hover { filter: brightness(1.08); }
+  .btn.secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); padding: 8px 14px; font-size: 14px; }
+  .error { color: var(--warn); font-weight: 600; margin: 12px 0 0; min-height: 1.5em; }
+
+  /* Results */
+  #results { display: none; padding: 10px 0 30px; }
+  #results.show { display: block; }
+  .results-card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; margin-bottom: 18px; }
+  .results-card h2 { margin: 0 0 4px; font-size: 22px; }
+  .results-card .sub { margin: 0 0 18px; color: var(--muted); font-size: 15px; }
+  .results-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 24px; align-items: center; }
+  .chart-box { position: relative; width: 100%; aspect-ratio: 1 / 1; max-width: 470px; margin: 0 auto; }
+  table.scores { width: 100%; border-collapse: collapse; font-size: 15px; }
+  table.scores th, table.scores td { text-align: left; padding: 9px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.scores th { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
+  table.scores td.num { font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
+  table.scores tr.low td { background: var(--warn-soft); }
+  .stage { display: block; font-size: 13px; color: var(--muted); }
+  .tag { display: inline-block; font-size: 11px; font-weight: 700; color: var(--warn); text-transform: uppercase; letter-spacing: .04em; margin-left: 4px; }
+
+  .profile-label { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); font-weight: 700; margin: 0 0 4px; }
+  .profile-name { font-size: 24px; margin: 0 0 6px; }
+  .trigger { font-size: 14px; color: var(--muted); margin: 0 0 14px; }
+  .action { background: var(--accent-soft); border-left: 4px solid var(--accent); padding: 12px 16px; border-radius: 6px; margin-top: 14px; }
+  .action strong { display: block; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--accent); margin-bottom: 2px; }
+  .lowest { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 6px; }
+  .lowest .item { border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; }
+  .lowest .item h4 { margin: 0 0 2px; font-size: 16px; }
+  .lowest .item .score { color: var(--warn); font-weight: 700; font-size: 14px; }
+  .lowest .item p { margin: 8px 0 0; font-size: 14px; }
+  .note { font-size: 14px; color: var(--muted); margin: 12px 0 0; }
+  .results-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+  /* Footer */
+  footer { border-top: 1px solid var(--line); padding: 22px 0 40px; color: var(--muted); font-size: 14px; }
+  footer p { margin: 0 0 8px; }
+  .tests { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+
+  @media (max-width: 720px) {
+    header h1 { font-size: 23px; }
+    .results-grid, .lowest { grid-template-columns: 1fr; }
+    fieldset.q { padding: 16px 14px 12px; }
+    .results-card { padding: 18px 14px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <p class="eyebrow">Digital Maturity Self-Assessment</p>
+    <h1>Freight Brokerage Digital Maturity Assessment</h1>
+    <p>For US truckload freight brokers (3PLs). Answer 20 questions about what your brokerage does today, based on your own systems, reports and rollout records. You'll get a 1–5 score on each of five dimensions, a radar chart, and a recommended next step based on your score pattern. Takes about 10 minutes.</p>
+    <ul class="dim-chips" id="dimChips"></ul>
+  </div>
+</header>
+
+<div class="progress" aria-live="polite">
+  <div class="wrap">
+    <div class="bar"><span id="barFill"></span></div>
+    <div class="count" id="countText">0 of 20 answered</div>
+  </div>
+</div>
+
+<main class="wrap">
+  <form id="assessment" novalidate>
+    <div id="questions"></div>
+    <div class="submit-box">
+      <button type="submit" class="btn" id="submitBtn">See my results</button>
+      <p class="error" id="errorMsg" role="alert"></p>
+    </div>
+  </form>
+
+  <section id="results" aria-live="polite">
+    <div class="results-card">
+      <h2>Your maturity profile</h2>
+      <p class="sub">Each score is the average of that dimension's four answers (1 = Initial, 5 = Optimizing).</p>
+      <div class="results-grid">
+        <div class="chart-box"><canvas id="radar" aria-label="Radar chart of dimension scores" role="img"></canvas></div>
+        <table class="scores">
+          <thead><tr><th>Dimension</th><th>Score</th></tr></thead>
+          <tbody id="scoreRows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="results-card" id="profileCard"></div>
+
+    <div class="results-card">
+      <h2>Your two lowest dimensions</h2>
+      <p class="sub" id="lowestSub"></p>
+      <div class="lowest" id="lowestList"></div>
+      <p class="note" id="tieNote"></p>
+    </div>
+
+    <div class="results-actions">
+      <button type="button" class="btn secondary" id="editBtn">Change my answers</button>
+      <button type="button" class="btn secondary" id="resetBtn">Start over</button>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p><strong>Team-built tool.</strong> Designed by William Lucas Thomas (Framework Designer), Chathura Brahakmanage (Question Author) and Mofiyinfoluwa Omidiji (Tool Builder) for USF's Digital Business Transformation course, Week 5. Each team member hosts their own copy.</p>
+    <p>Stage 5 benchmarks: Uber Freight (data, channels, execution, pricing) and C.H. Robinson (workforce).</p>
+    <div class="tests">
+      <span>Phase 3 test cases (fills the answers; then press "See my results"):</span>
+      <span id="testButtons"></span>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* =====================================================================
+   DATA: edit this section to change dimensions, questions, profiles.
+   Nothing below the "LOGIC" line needs to change when content changes.
+   ===================================================================== */
+
+// Five framework dimensions. Names match Section A word for word.
+const DIMENSIONS = [
+  { id: "data",      name: "Lane & Rate Data Infrastructure",
+    short: ["Lane & Rate Data", "Infrastructure"],
+    description: "Whether load, lane, rate and carrier history is captured in one system and usable for pricing and analysis." },
+  { id: "channels",  name: "Shipper & Carrier Digital Channels",
+    short: ["Shipper & Carrier", "Digital Channels"],
+    description: "How shippers tender loads and carriers book them: email and phone vs. portal, API, EDI or app." },
+  { id: "execution", name: "Load Execution Automation",
+    short: ["Load Execution", "Automation"],
+    description: "How much of the shipment lifecycle runs without manual touches: carrier onboarding, tracking, appointments, documents, invoicing." },
+  { id: "pricing",   name: "AI Pricing & Carrier Matching",
+    short: ["AI Pricing &", "Carrier Matching"],
+    description: "Whether quotes and carrier selection come from models instead of rep judgment." },
+  { id: "workforce", name: "Workforce Change Capacity",
+    short: ["Workforce Change", "Capacity"],
+    description: "Whether reps actually adopt new tools and processes, and how rollouts are run and measured." }
+];
+
+const STAGE_NAMES = { 1: "Initial", 2: "Developing", 3: "Defined", 4: "Managed", 5: "Optimizing" };
+
+// 20 questions from Section B. Every option carries an explicit integer value 1–5.
+const QUESTIONS = [
+  // 1. Lane & Rate Data Infrastructure
+  { id: "q1", dimension: "data",
+    text: "Where is the record of a completed load (origin, destination, equipment, shipper rate, carrier cost, carrier) kept?",
+    options: [
+      { value: 1, text: "In reps' email, notes or personal spreadsheets" },
+      { value: 2, text: "In a TMS or shared spreadsheet, but fields are often blank and carrier cost is often missing" },
+      { value: 3, text: "In one TMS, with every standard field required before a load can close" },
+      { value: 4, text: "In one TMS, and an automated check flags missing or wrong values every day" },
+      { value: 5, text: "In a governed data platform that receives load data continuously and feeds pricing models directly" } ] },
+  { id: "q2", dimension: "data",
+    text: "How does external market rate data (DAT, Greenscreens, SONAR or similar) connect to your own lane history?",
+    options: [
+      { value: 1, text: "We do not use external market rate data" },
+      { value: 2, text: "Reps look up market rates one load at a time in the provider's website" },
+      { value: 3, text: "Someone exports market rates now and then and compares them with lane reports by hand" },
+      { value: 4, text: "The rate feed joins your lane history automatically by lane, in one database, at least daily" },
+      { value: 5, text: "Several external feeds plus live data (weather, traffic, road closures) flow continuously into pricing models, and new sources are tested regularly" } ] },
+  { id: "q3", dimension: "data",
+    text: "How does leadership see margin and volume by lane and by customer?",
+    options: [
+      { value: 1, text: "They cannot without asking reps" },
+      { value: 2, text: "Someone builds a report by hand, and it needs cleanup before anyone trusts it" },
+      { value: 3, text: "A report comes straight from the TMS, usually monthly" },
+      { value: 4, text: "A dashboard updates daily from one source, with automated data-quality checks" },
+      { value: 5, text: "A dashboard updates in real time, and the same data feeds pricing models directly" } ] },
+  { id: "q4", dimension: "data",
+    text: "Where are carrier performance records (ratings, grades, reviews) kept?",
+    options: [
+      { value: 1, text: "We keep no performance record; reps remember which carriers are good" },
+      { value: 2, text: "In reps' personal notes or a shared spreadsheet that is filled in inconsistently" },
+      { value: 3, text: "In one internal carrier list with authority, insurance and contact details, but no performance ratings" },
+      { value: 4, text: "In one internal system that every rep uses, where each contracted carrier is rated, graded and reviewed by staff on a regular schedule" },
+      { value: 5, text: "Performance scores are calculated automatically from load outcomes (on-time, tracking, claims) and feed carrier matching directly" } ] },
+
+  // 2. Shipper & Carrier Digital Channels
+  { id: "q5", dimension: "channels",
+    text: "What share of shipper load tenders arrive through EDI, API or a portal rather than email or phone?",
+    options: [
+      { value: 1, text: "None" },
+      { value: 2, text: "1 to 29%" },
+      { value: 3, text: "30 to 49%" },
+      { value: 4, text: "50 to 79%" },
+      { value: 5, text: "80% or more" } ] },
+  { id: "q6", dimension: "channels",
+    text: "How does a shipper get a quote on a standard lane?",
+    options: [
+      { value: 1, text: "They email or call a rep" },
+      { value: 2, text: "They email or call a rep; only one or two large shippers send requests through their own bid systems" },
+      { value: 3, text: "They can request a quote through our portal or API, but a rep reviews and sends every quote back" },
+      { value: 4, text: "They get an instant quote in our portal or API on standard lanes; a rep handles only non-standard lanes" },
+      { value: 5, text: "They quote and book truckload and LTL instantly, around the clock, without a rep" } ] },
+  { id: "q7", dimension: "channels",
+    text: "How do carriers book your loads?",
+    options: [
+      { value: 1, text: "We post on load boards and carriers call or email a rep" },
+      { value: 2, text: "Carriers book by phone; any carrier portal is used only for paperwork" },
+      { value: 3, text: "Carriers can view and request loads online, but a rep confirms every booking" },
+      { value: 4, text: "Carriers book posted loads in an app or portal at a set price, without a phone call" },
+      { value: 5, text: "Carriers book or bid on most loads in an app; phone is for exceptions only" } ] },
+  { id: "q8", dimension: "channels",
+    text: "Who can use your shipper integrations (EDI, API, portal)?",
+    options: [
+      { value: 1, text: "We have no shipper integrations" },
+      { value: 2, text: "Only the account team that built them, for one or two large shippers" },
+      { value: 3, text: "Any rep, through a company-wide standard, but connecting a new shipper takes months" },
+      { value: 4, text: "Any rep; there is a standard onboarding playbook, a new shipper connects in weeks, and digital share is reported monthly" },
+      { value: 5, text: "Shippers and carriers connect themselves (API documentation, app sign-up) in days, with no project needed" } ] },
+
+  // 3. Load Execution Automation
+  { id: "q9", dimension: "execution",
+    text: "How is a load's location tracked between pickup and delivery?",
+    options: [
+      { value: 1, text: "Reps make check calls several times a day" },
+      { value: 2, text: "Some carriers get a tracking link, set up by the rep per load; most loads still need check calls" },
+      { value: 3, text: "ELD or GPS integration tracks most loads automatically in the TMS" },
+      { value: 4, text: "90% or more of loads track automatically, and late or off-route loads are sent to an exception queue" },
+      { value: 5, text: "Tracking is automatic, and software or an AI agent answers status questions and alerts shippers without a rep" } ] },
+  { id: "q10", dimension: "execution",
+    text: "How are new carriers onboarded and kept compliant?",
+    options: [
+      { value: 1, text: "Staff email a carrier packet and check authority and insurance by hand" },
+      { value: 2, text: "An onboarding service checks insurance and authority at setup; ongoing checks are manual" },
+      { value: 3, text: "Onboarding and ongoing compliance monitoring are automated, with alerts when insurance lapses" },
+      { value: 4, text: "A non-compliant carrier is blocked in the TMS automatically, fraud checks are automated, and onboarding time is measured" },
+      { value: 5, text: "Carriers onboard themselves in minutes; automated fraud detection runs, and staff handle exceptions only" } ] },
+  { id: "q11", dimension: "execution",
+    text: "How do rate confirmations, proof of delivery (POD) and invoices move?",
+    options: [
+      { value: 1, text: "By fax or email, and staff key them by hand" },
+      { value: 2, text: "Rate confirmations come from a template or generator, but PODs are chased by email and filed by hand" },
+      { value: 3, text: "Documents are captured digitally and attach to the load in the TMS automatically, but staff create invoices" },
+      { value: 4, text: "A captured POD triggers the shipper invoice and carrier payment automatically on most loads" },
+      { value: 5, text: "Documents are read and checked automatically end to end, and staff review exceptions only" } ] },
+  { id: "q12", dimension: "execution",
+    text: "How do reps know which loads need their attention today?",
+    options: [
+      { value: 1, text: "Each rep works every one of their loads from their own list" },
+      { value: 2, text: "Reps keep their own notes or task lists and check each load by hand" },
+      { value: 3, text: "A TMS status board shows every load, but reps update each step by hand" },
+      { value: 4, text: "Reps work an exception queue the system fills, and the share of loads touched is measured" },
+      { value: 5, text: "Software or AI agents resolve first-line exceptions and customer questions; reps handle escalations only" } ] },
+
+  // 4. AI Pricing & Carrier Matching
+  { id: "q13", dimension: "pricing",
+    text: "How is a shipper quote on a standard lane produced?",
+    options: [
+      { value: 1, text: "A rep prices it from experience and memory" },
+      { value: 2, text: "A rep checks a rate index or load-board average, then sets the price" },
+      { value: 3, text: "A rate tool suggests a price, and the rep adjusts every quote" },
+      { value: 4, text: "A pricing model produces most quotes; reps override exceptions only" },
+      { value: 5, text: "Machine learning sets a guaranteed upfront price on most lanes, without a rep" } ] },
+  { id: "q14", dimension: "pricing",
+    text: "When a rep needs to cover a load, how is the carrier chosen?",
+    options: [
+      { value: 1, text: "The rep calls carriers they know, or takes whoever calls back first" },
+      { value: 2, text: "The rep searches load boards, their own notes, or the internal carrier scorecard by hand" },
+      { value: 3, text: "A tool suggests a ranked list of qualified carriers from the scorecard and load history, and the rep picks one" },
+      { value: 4, text: "A matching engine recommends the carrier for most loads; the rep books it and overrides only exceptions" },
+      { value: 5, text: "The system matches the load and offers it to the best carrier automatically, without a rep" } ] },
+  { id: "q15", dimension: "pricing",
+    text: "How do you check whether quotes were accurate?",
+    options: [
+      { value: 1, text: "We do not check" },
+      { value: 2, text: "Managers review margin per load after the fact; quote accuracy is not tracked" },
+      { value: 3, text: "Suggested rates are saved, but nobody compares them with actual carrier cost" },
+      { value: 4, text: "Quote accuracy against actual carrier cost is reviewed by lane on a regular schedule" },
+      { value: 5, text: "Models are monitored against actual outcomes continuously, retrained, and pulled back when error crosses a set limit" } ] },
+  { id: "q16", dimension: "pricing",
+    text: "How are rates built for shipper contract bids (RFPs)?",
+    options: [
+      { value: 1, text: "A rep or manager sets each lane's rate by judgment" },
+      { value: 2, text: "In a spreadsheet using past averages and rate-index lookups" },
+      { value: 3, text: "A bid tool pulls lane history and market data and suggests rates; an analyst adjusts every lane" },
+      { value: 4, text: "A model prices most lanes, an analyst reviews outliers, and win/loss results tune the model" },
+      { value: 5, text: "Machine learning prices the full bid and adjusts awarded rates as the market moves, with monitoring and retraining" } ] },
+
+  // 5. Workforce Change Capacity
+  { id: "q17", dimension: "workforce",
+    text: "How are reps trained when a new tool launches?",
+    options: [
+      { value: 1, text: "It is announced by email, and reps learn by shadowing" },
+      { value: 2, text: "One training session for everyone at go-live" },
+      { value: 3, text: "A written rollout plan with a named owner, role-based training and a pilot team first" },
+      { value: 4, text: "Team leads are trained before reps, and refresher training is based on usage data" },
+      { value: 5, text: "Training is part of a regular rollout cycle, and rep roles are redesigned around the new tool" } ] },
+  { id: "q18", dimension: "workforce",
+    text: "How is adoption of a new tool measured?",
+    options: [
+      { value: 1, text: "Nobody owns adoption after launch" },
+      { value: 2, text: "Managers judge usage informally; no usage numbers are collected" },
+      { value: 3, text: "A named owner tracks usage for 90 days after launch" },
+      { value: 4, text: "Adoption is on rep and manager scorecards and reviewed monthly" },
+      { value: 5, text: "The productivity gain (loads per rep, time to cover) is measured and reported for each tool" } ] },
+  { id: "q19", dimension: "workforce",
+    text: "Six months after your last major tool launch, how many reps use it as their main tool?",
+    options: [
+      { value: 1, text: "The tool is no longer used, or fewer than 25% of reps use it" },
+      { value: 2, text: "25 to 49%; some teams use it, others work around it" },
+      { value: 3, text: "50 to 74%, with some reps still keeping parallel spreadsheets" },
+      { value: 4, text: "75 to 89%, with no parallel spreadsheets" },
+      { value: 5, text: "90% or more, and the old process has been formally retired" } ] },
+  { id: "q20", dimension: "workforce",
+    text: "How often are new tools or automations put into daily work?",
+    options: [
+      { value: 1, text: "Rarely; the last new tool was more than two years ago" },
+      { value: 2, text: "Only when a customer, carrier or vendor requires it" },
+      { value: 3, text: "Planned rollouts from an annual technology roadmap" },
+      { value: 4, text: "Rollouts every quarter from the roadmap, with rep job descriptions updated to match" },
+      { value: 5, text: "New tools and AI agents go into daily work every quarter, rep roles are redesigned, and the productivity gain is reported" } ] }
+];
+
+// "Far below" = at least this many points below EVERY other dimension.
+const FAR_BELOW_GAP = 1.0;
+
+// Interpretation Guide profiles from Section A, checked in order; first match wins.
+// Rule types:  { dims: [...] or "all", op: "<=" | ">=", value }   or   { farBelow: dimId }
+const PROFILES = [
+  { id: 1, name: "Phone, Email and Spreadsheets",
+    trigger: "All five dimensions at 2.0 or below",
+    rules: [ { dims: "all", op: "<=", value: 2.0 } ],
+    description: "The brokerage runs on people and relationships, not systems. Margins depend on individual reps, and nothing can be automated because nothing is recorded consistently.",
+    action: "Get every load into one TMS with standard lane, rate and carrier fields before buying any other technology." },
+  { id: 2, name: "Digital Freight Leader",
+    trigger: "All five dimensions at 4.0 or above",
+    rules: [ { dims: "all", op: ">=", value: 4.0 } ],
+    description: "The brokerage competes on speed and price accuracy, the way Uber Freight does. The risk now is models drifting silently as markets shift, the failure that cost Zillow Offers hundreds of millions.",
+    action: "Track quote accuracy against actual carrier cost weekly and set a rule that pulls a pricing model back when error crosses a set threshold." },
+  { id: 3, name: "Execution Gap",
+    trigger: "Workforce Change Capacity at least 1.0 below every other dimension",
+    rules: [ { farBelow: "workforce" } ],
+    description: "The technology is ahead of the people: reps work around systems the brokerage already paid for. Each new tool adds to the pile instead of to productivity.",
+    action: "Train team leads first and put tool adoption on rep and manager scorecards before buying anything new." },
+  { id: 4, name: "Data Gap",
+    trigger: "Lane & Rate Data Infrastructure at least 1.0 below every other dimension",
+    rules: [ { farBelow: "data" } ],
+    description: "Channels, automation or pricing tools run on data the brokerage cannot trust. Models built on it quote badly, and lane margin reports get argued over instead of acted on.",
+    action: "Unify load, rate and carrier history into one clean source before expanding pricing or matching models." },
+  { id: 5, name: "Digital Front Door, Manual Pricing",
+    trigger: "Shipper & Carrier Digital Channels at 3.5 or above and AI Pricing & Carrier Matching at 2.0 or below",
+    rules: [ { dims: ["channels"], op: ">=", value: 3.5 }, { dims: ["pricing"], op: "<=", value: 2.0 } ],
+    description: "The brokerage looks digital but is not transforming: loads arrive through portals and EDI, then wait for a rep to price them by hand. Digital-first competitors win on quote speed.",
+    action: "Pilot model-generated quotes on the top 20 lanes, using the brokerage's own history plus a market rate feed, and compare win rate and margin against rep quotes for 60 days." },
+  { id: 6, name: "Strong Foundation, Nothing Built On It",
+    trigger: "Lane & Rate Data Infrastructure at 3.5 or above and every other dimension at 2.5 or below",
+    rules: [ { dims: ["data"], op: ">=", value: 3.5 }, { dims: ["channels", "execution", "pricing", "workforce"], op: "<=", value: 2.5 } ],
+    description: "Mid-tier brokers win on customer service and automate little, but they keep a rich record of contracted carriers that are rated, graded and reviewed. Nothing uses that record automatically: reps qualify and assign carriers by hand when they execute a load.",
+    action: "Build an internal tool that suggests qualified carriers for each load from the existing scorecard and load history, roll it out through team leads first, and measure time to cover against manual sourcing for 60 days." }
+];
+
+// Tie-break order for the two lowest dimensions (Section A): foundations first, customer-facing layer last.
+const TIE_BREAK_ORDER = ["data", "pricing", "workforce", "execution", "channels"];
+
+// Fallback next step per dimension, shown when no profile matches.
+const DIMENSION_NEXT_STEPS = {
+  data:      "Make carrier cost and the standard lane fields required on every load in one TMS, then join a market rate feed to that history by lane.",
+  channels:  "Open your existing shipper integrations to every rep with a standard onboarding playbook, and report digital tender share monthly.",
+  execution: "Automate tracking through ELD or GPS on your top carriers first, and move reps from working every load to working an exception queue.",
+  pricing:   "Save every suggested and final quote, compare them with actual carrier cost by lane each month, and pilot a pricing tool on your top 20 lanes.",
+  workforce: "Name an owner for each rollout, train team leads before reps, and track usage for 90 days after launch."
+};
+
+// Phase 3 test cases from Section B (answer value per question, q1..q20).
+const TEST_CASES = [
+  { label: "Stage 2 broker",    answers: Array(20).fill(2) },
+  { label: "Stage 4 broker",    answers: Array(20).fill(4) },
+  { label: "Integrity Express", answers: [3,4,4,4, 2,2,2,2, 2,2,2,2, 2,2,2,2, 2,2,2,2] }
+];
+
+/* =====================================================================
+   LOGIC
+   ===================================================================== */
+
+const dimById = Object.fromEntries(DIMENSIONS.map(d => [d.id, d]));
+let chart = null;
+
+// --- Scoring --------------------------------------------------------
+// Dimension score = plain average of its answers' values (unrounded).
+function computeScores(answers) {
+  const scores = {};
+  for (const d of DIMENSIONS) {
+    const vals = QUESTIONS.filter(q => q.dimension === d.id).map(q => answers[q.id]);
+    scores[d.id] = vals.reduce((a, b) => a + b, 0) / vals.length;
+  }
+  return scores;
+}
+
+function ruleMatches(rule, scores) {
+  if (rule.farBelow) {
+    const target = scores[rule.farBelow];
+    return DIMENSIONS.filter(d => d.id !== rule.farBelow)
+      .every(d => scores[d.id] - target >= FAR_BELOW_GAP);
+  }
+  const dims = rule.dims === "all" ? DIMENSIONS.map(d => d.id) : rule.dims;
+  return dims.every(id => rule.op === "<=" ? scores[id] <= rule.value : scores[id] >= rule.value);
+}
+
+// Profiles checked in order 1 → 6; first match wins. Returns null if none match.
+function matchProfile(scores) {
+  return PROFILES.find(p => p.rules.every(r => ruleMatches(r, scores))) || null;
+}
+
+// Sort by score ascending; ties broken by TIE_BREAK_ORDER.
+function rankLowest(scores) {
+  return [...TIE_BREAK_ORDER].sort((a, b) =>
+    scores[a] - scores[b] || TIE_BREAK_ORDER.indexOf(a) - TIE_BREAK_ORDER.indexOf(b));
+}
+
+const fmt = n => n.toFixed(2);
+
+// Wrap a dimension name into short lines for small screens (same words, same order).
+function wrapLabel(text, max) {
+  const lines = [];
+  for (const word of text.split(" ")) {
+    const last = lines[lines.length - 1];
+    if (last && (last + " " + word).length <= max) lines[lines.length - 1] = last + " " + word;
+    else lines.push(word);
+  }
+  return lines;
+}
+const stageOf = n => STAGE_NAMES[Math.min(5, Math.max(1, Math.round(n)))];
+
+// --- Rendering the questionnaire -----------------------------------
+function renderQuestions() {
+  document.getElementById("dimChips").innerHTML =
+    DIMENSIONS.map(d => `<li>${d.name}</li>`).join("");
+
+  let qNumber = 0;
+  const html = DIMENSIONS.map((d, i) => {
+    const qs = QUESTIONS.filter(q => q.dimension === d.id).map(q => {
+      qNumber++;
+      const opts = q.options.map(o => `
+        <label class="opt">
+          <input type="radio" name="${q.id}" value="${o.value}">
+          <span>${o.text}</span>
+        </label>`).join("");
+      return `
+        <fieldset class="q" id="fs-${q.id}">
+          <legend><span class="qn">Q${qNumber}.</span>${q.text}</legend>
+          <div class="opts">${opts}</div>
+        </fieldset>`;
+    }).join("");
+    return `
+      <section class="dimension" aria-labelledby="h-${d.id}">
+        <div class="dim-head">
+          <div class="dim-num">${i + 1}</div>
+          <div><h2 id="h-${d.id}">${d.name}</h2><p>${d.description}</p></div>
+        </div>
+        ${qs}
+      </section>`;
+  }).join("");
+  document.getElementById("questions").innerHTML = html;
+}
+
+function readAnswers() {
+  const answers = {};
+  for (const q of QUESTIONS) {
+    const checked = document.querySelector(`input[name="${q.id}"]:checked`);
+    if (checked) answers[q.id] = parseInt(checked.value, 10);
+  }
+  return answers;
+}
+
+function updateProgress() {
+  const n = Object.keys(readAnswers()).length;
+  document.getElementById("countText").textContent = `${n} of ${QUESTIONS.length} answered`;
+  document.getElementById("barFill").style.width = `${(n / QUESTIONS.length) * 100}%`;
+}
+
+// --- Rendering results ---------------------------------------------
+function renderResults(scores) {
+  const profile = matchProfile(scores);
+  const ranked = rankLowest(scores);
+  const lowestTwo = ranked.slice(0, 2);
+
+  // Score table (framework order)
+  document.getElementById("scoreRows").innerHTML = DIMENSIONS.map(d => {
+    const low = lowestTwo.includes(d.id);
+    return `<tr class="${low ? "low" : ""}">
+      <td>${d.name}${low ? '<span class="tag">Lowest</span>' : ""}</td>
+      <td class="num">${fmt(scores[d.id])}<span class="stage">${stageOf(scores[d.id])}</span></td>
+    </tr>`;
+  }).join("");
+
+  // Radar chart
+  const canvas = document.getElementById("radar");
+  if (typeof Chart === "undefined") {
+    canvas.parentElement.innerHTML = '<p class="note">The chart library could not load. Check your internet connection and refresh.</p>';
+  } else {
+    if (chart) chart.destroy();
+    chart = new Chart(canvas, {
+      type: "radar",
+      data: {
+        labels: DIMENSIONS.map(d => d.short),
+        datasets: [{
+          label: "Your score",
+          data: DIMENSIONS.map(d => scores[d.id]),
+          backgroundColor: "rgba(31, 95, 139, 0.22)",
+          borderColor: "#1f5f8b",
+          borderWidth: 2,
+          pointBackgroundColor: DIMENSIONS.map(d => lowestTwo.includes(d.id) ? "#b4442f" : "#1f5f8b"),
+          pointRadius: 5
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 400 },
+        layout: { padding: 12 },
+        scales: {
+          r: {
+            min: 0, max: 5,
+            ticks: { stepSize: 1, backdropColor: "transparent", color: "#5d6b7c", font: { size: 11 } },
+            pointLabels: { color: "#1b2430", padding: 6, callback: (label, i) => window.innerWidth < 500 ? wrapLabel(DIMENSIONS[i].name, 11) : label, font: () => ({ size: window.innerWidth < 500 ? 10 : 12, weight: "600" }) },
+            grid: { color: "#dde3ea" },
+            angleLines: { color: "#dde3ea" }
+          }
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              title: items => DIMENSIONS[items[0].dataIndex].name,
+              label: item => ` Score: ${fmt(item.raw)} (${stageOf(item.raw)})`
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Profile card
+  const card = document.getElementById("profileCard");
+  if (profile) {
+    card.innerHTML = `
+      <p class="profile-label">Interpretation · Profile ${profile.id} of ${PROFILES.length}</p>
+      <h3 class="profile-name">${profile.name}</h3>
+      <p class="trigger">Why this profile: ${profile.trigger}.</p>
+      <p>${profile.description}</p>
+      <div class="action"><strong>Recommended next action</strong>${profile.action}</div>`;
+  } else {
+    card.innerHTML = `
+      <p class="profile-label">Interpretation</p>
+      <h3 class="profile-name">Mixed profile: start with your two lowest dimensions</h3>
+      <p class="trigger">None of the six archetype patterns matched your scores.</p>
+      <p>Your capabilities are uneven without a single dominant pattern. The highest-leverage move is to lift your two weakest dimensions, shown below with a next step for each, before investing further in your strongest ones.</p>`;
+  }
+
+  // Two lowest dimensions
+  document.getElementById("lowestSub").textContent = profile
+    ? "Highlighted on the chart. These are where your score is weakest relative to the rest of your brokerage."
+    : "No profile matched, so here is a next step for each.";
+  document.getElementById("lowestList").innerHTML = lowestTwo.map(id => `
+    <div class="item">
+      <h4>${dimById[id].name}</h4>
+      <span class="score">${fmt(scores[id])} · ${stageOf(scores[id])}</span>
+      ${profile ? "" : `<p><strong>Next step:</strong> ${DIMENSION_NEXT_STEPS[id]}</p>`}
+    </div>`).join("");
+
+  // Tie note: explain when the cut-off between 2nd and 3rd lowest is a tie
+  const cutoff = scores[ranked[1]];
+  const tied = ranked.filter(id => scores[id] === cutoff);
+  const tieNote = document.getElementById("tieNote");
+  if (tied.length > 1 && scores[ranked[2]] === cutoff) {
+    tieNote.textContent = `${tied.length} dimensions are tied at ${fmt(cutoff)} (${tied.map(id => dimById[id].name).join(", ")}). ` +
+      "Ties are ranked foundations first: Lane & Rate Data Infrastructure, AI Pricing & Carrier Matching, Workforce Change Capacity, Load Execution Automation, Shipper & Carrier Digital Channels.";
+  } else {
+    tieNote.textContent = "";
+  }
+}
+
+// --- Events ----------------------------------------------------------
+function hideResults() {
+  document.getElementById("results").classList.remove("show");
+}
+
+function onSubmit(e) {
+  e.preventDefault();
+  const answers = readAnswers();
+  const missing = QUESTIONS.filter(q => answers[q.id] === undefined);
+  const err = document.getElementById("errorMsg");
+
+  document.querySelectorAll("fieldset.q").forEach(fs => fs.classList.remove("missing"));
+  if (missing.length) {
+    missing.forEach(q => document.getElementById(`fs-${q.id}`).classList.add("missing"));
+    err.textContent = `Please answer all ${QUESTIONS.length} questions. ${missing.length} still need an answer (highlighted).`;
+    hideResults();
+    document.getElementById(`fs-${missing[0].id}`).scrollIntoView({ behavior: "smooth", block: "center" });
+    return;
+  }
+
+  err.textContent = "";
+  const results = document.getElementById("results");
+  results.classList.add("show");
+  renderResults(computeScores(answers));
+  results.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function fillAnswers(values) {
+  QUESTIONS.forEach((q, i) => {
+    const input = document.querySelector(`input[name="${q.id}"][value="${values[i]}"]`);
+    if (input) input.checked = true;
+  });
+  document.querySelectorAll("fieldset.q").forEach(fs => fs.classList.remove("missing"));
+  document.getElementById("errorMsg").textContent = "";
+  hideResults();
+  updateProgress();
+  document.getElementById("submitBtn").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function init() {
+  renderQuestions();
+  updateProgress();
+
+  const form = document.getElementById("assessment");
+  form.addEventListener("submit", onSubmit);
+  form.addEventListener("change", e => {
+    if (e.target.type !== "radio") return;
+    e.target.closest("fieldset").classList.remove("missing");
+    updateProgress();
+    hideResults(); // never show results that don't reflect the current answers
+  });
+
+  document.getElementById("editBtn").addEventListener("click", () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+  document.getElementById("resetBtn").addEventListener("click", () => {
+    form.reset();
+    document.querySelectorAll("fieldset.q").forEach(fs => fs.classList.remove("missing"));
+    document.getElementById("errorMsg").textContent = "";
+    hideResults();
+    updateProgress();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  document.getElementById("testButtons").innerHTML = TEST_CASES.map((t, i) =>
+    `<button type="button" class="btn secondary" data-test="${i}">${t.label}</button>`).join(" ");
+  document.getElementById("testButtons").addEventListener("click", e => {
+    const i = e.target.dataset.test;
+    if (i !== undefined) fillAnswers(TEST_CASES[i].answers);
+  });
+}
+
+init();
+</script>
+</body>
+</html>
